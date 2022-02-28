@@ -247,7 +247,32 @@ func (q *Querier) InsertMulti(structs ...Struct) error {
 		values = append(values, v...)
 	}
 
-	_, err = q.Exec(query, values...)
+	switch q.Dialect.String() {
+	case "postgresql":
+		query = query + "\n RETURNING ID"
+
+		rows, err := q.Query(query, values...)
+		if err != nil {
+			return err
+		}
+
+		defer rows.Close()
+		var ids []int64
+		for rows.Next() {
+			var id int64
+			err = rows.Scan(&id)
+			if err != nil {
+				return err
+			}
+			ids = append(ids, id)
+		}
+
+		fmt.Printf("\nIDs: %+v\n", ids)
+		return nil
+	default:
+		_, err = q.Exec(query, values...)
+	}
+
 	return err
 }
 
